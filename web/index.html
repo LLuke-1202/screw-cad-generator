@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>螺絲 CAD 生成器 - 系統測試</title>
+<style>
+  body { margin: 0; font-family: "Microsoft JhengHei", sans-serif; display: flex; height: 100vh; background: #f4f5f7; }
+  #side { width: 280px; padding: 18px; box-sizing: border-box; background: #fff; border-right: 1px solid #ddd; }
+  #view { flex: 1; position: relative; }
+  button { width: 100%; padding: 10px; margin: 6px 0; font-size: 15px; cursor: pointer; }
+  #status { font-size: 13px; color: #444; white-space: pre-wrap; margin-top: 10px; }
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+</head>
+<body>
+<div id="side">
+  <h3>系統可行性測試</h3>
+  <p>M3 x 0.5 x 10 盤頭十字 PH1<br>（真實螺旋螺紋）</p>
+  <button id="gen">1. 產生模型 + 3D 預覽</button>
+  <button id="save">2. 另存 STEP</button>
+  <div id="status">等待中…</div>
+</div>
+<div id="view"></div>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "./vendor/OrbitControls.js";
+
+const view = document.getElementById("view"), status = document.getElementById("status");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+view.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xeef0f3);
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 1000); camera.up.set(0, 0, 1); camera.position.set(25, -25, 15);
+const controls = new OrbitControls(camera, renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x666677, 1.6));
+const dl = new THREE.DirectionalLight(0xffffff, 1.4); dl.position.set(20, -30, 40); scene.add(dl);
+let mesh = null;
+function resize() { const w = view.clientWidth, h = view.clientHeight; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+window.addEventListener("resize", resize); resize();
+(function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+
+document.getElementById("gen").onclick = async () => {
+  status.textContent = "計算中…";
+  const r = await window.pywebview.api.generate();
+  if (!r.ok) { status.textContent = "錯誤：\n" + r.error; return; }
+  if (mesh) scene.remove(mesh);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(r.verts, 3));
+  g.setIndex(r.tris); g.computeVertexNormals();
+  mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0xb8bcc4, metalness: 0.6, roughness: 0.35 }));
+  scene.add(mesh);
+  g.computeBoundingSphere(); const c = g.boundingSphere.center; controls.target.copy(c);
+  camera.position.set(c.x + 18, c.y - 18, c.z + 10);
+  status.textContent = `完成：${(r.tris.length / 3).toLocaleString()} 三角面\n體積 ${r.volume.toFixed(2)} mm³\n耗時 ${r.seconds.toFixed(1)} 秒`;
+};
+document.getElementById("save").onclick = async () => {
+  const r = await window.pywebview.api.save_step();
+  status.textContent = r.ok ? "已儲存：\n" + r.path : r.error;
+};
+</script>
+</body>
+</html>
