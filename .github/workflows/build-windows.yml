@@ -1,0 +1,52 @@
+name: Build Windows exe (feasibility test)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Self-test in plain Python first
+        run: python app.py --selftest; Get-Content selftest.log
+
+      - name: Build exe with PyInstaller
+        run: >
+          pyinstaller --noconfirm --clean --onedir --windowed
+          --name ScrewGenTest
+          --add-data "web;web"
+          --collect-all cadquery
+          --collect-all OCP
+          --collect-all vtkmodules
+          --collect-all casadi
+          --collect-all nlopt
+          --collect-all webview
+          app.py
+
+      - name: Self-test the packaged exe (no window)
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist\ScrewGenTest\ScrewGenTest.exe" -ArgumentList "--selftest" -Wait -PassThru
+          Get-Content "dist\ScrewGenTest\selftest.log"
+          if ($p.ExitCode -ne 0) { throw "packaged selftest failed (exit $($p.ExitCode))" }
+          Remove-Item "dist\ScrewGenTest\selftest.log", "dist\ScrewGenTest\M3x10_pan_PH1.step"
+          $size = (Get-ChildItem dist\ScrewGenTest -Recurse | Measure-Object Length -Sum).Sum / 1MB
+          "Package size: {0:N0} MB" -f $size
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ScrewGenTest-windows
+          path: dist/ScrewGenTest
