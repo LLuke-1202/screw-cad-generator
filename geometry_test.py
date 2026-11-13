@@ -54,6 +54,15 @@ def export_step(shape, path):
     cq.exporters.export(cq.Workplane().add(shape), path, "STEP")
 
 
+def mesh_arrays(shape, tol=0.01):
+    """float32 xyz array + uint32 triangle index array (compact transfer to the window)."""
+    import numpy as np
+    verts, tris = shape.tessellate(tol, 0.2)
+    v = np.array([(p.x, p.y, p.z) for p in verts], dtype="<f4").ravel()
+    t = np.array(tris, dtype="<u4").ravel()
+    return v, t
+
+
 def mesh(shape, tol=0.01):
     verts, tris = shape.tessellate(tol, 0.2)
     return [c for v in verts for c in (v.x, v.y, v.z)], [i for t in tris for i in t]
