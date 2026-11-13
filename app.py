@@ -13,7 +13,7 @@ import threading
 import time
 import traceback
 
-APP_VERSION = "test-v2"
+APP_VERSION = "test-v3"
 
 
 def base_dir():
@@ -72,11 +72,11 @@ def selftest(out_dir):
 
 class Api:
     def __init__(self):
-        self.shape = None
-        self.window = None
-        self.kernel_ready = threading.Event()
-        self.kernel_error = None
-        self.kernel_seconds = None
+        self._shape = None
+        self._window = None
+        self._kernel_ready = threading.Event()
+        self._kernel_error = None
+        self._kernel_seconds = None
 
     # --- background warm-up: importing the CAD kernel is the slowest part of start-up
     def warm_up(self):
@@ -85,35 +85,35 @@ class Api:
         try:
             import cadquery  # noqa: F401
             import geometry_test  # noqa: F401
-            self.kernel_seconds = time.time() - t
-            log.info("kernel import done %.2fs", self.kernel_seconds)
+            self._kernel_seconds = time.time() - t
+            log.info("kernel import done %.2fs", self._kernel_seconds)
         except Exception:
-            self.kernel_error = traceback.format_exc()
-            log.error("kernel import FAILED\n%s", self.kernel_error)
-        self.kernel_ready.set()
+            self._kernel_error = traceback.format_exc()
+            log.error("kernel import FAILED\n%s", self._kernel_error)
+        self._kernel_ready.set()
 
     def status(self):
-        return dict(ready=self.kernel_ready.is_set(), error=self.kernel_error, seconds=self.kernel_seconds,
+        return dict(ready=self._kernel_ready.is_set(), error=self._kernel_error, seconds=self._kernel_seconds,
                     log=LOG_PATH, version=APP_VERSION, os=platform.platform())
 
     def generate(self):
         log.info("generate called")
         try:
-            if not self.kernel_ready.wait(timeout=600):
+            if not self._kernel_ready.wait(timeout=600):
                 return dict(ok=False, error="CAD 核心載入超過 10 分鐘仍未完成", log=LOG_PATH)
-            if self.kernel_error:
-                return dict(ok=False, error="CAD 核心載入失敗：\n" + self.kernel_error, log=LOG_PATH)
+            if self._kernel_error:
+                return dict(ok=False, error="CAD 核心載入失敗：\n" + self._kernel_error, log=LOG_PATH)
             from geometry_test import build_m3_pan, mesh_arrays
             t0 = time.time()
-            self.shape = build_m3_pan()
+            self._shape = build_m3_pan()
             t1 = time.time()
-            log.info("build done %.2fs valid=%s", t1 - t0, self.shape.isValid())
-            verts, tris = mesh_arrays(self.shape)
+            log.info("build done %.2fs valid=%s", t1 - t0, self._shape.isValid())
+            verts, tris = mesh_arrays(self._shape)
             t2 = time.time()
             log.info("tessellate done %.2fs triangles=%d", t2 - t1, len(tris) // 3)
             res = dict(ok=True, verts=base64.b64encode(verts.tobytes()).decode("ascii"),
                        tris=base64.b64encode(tris.tobytes()).decode("ascii"),
-                       ntri=len(tris) // 3, volume=self.shape.Volume(), build_s=t1 - t0, mesh_s=t2 - t1)
+                       ntri=len(tris) // 3, volume=self._shape.Volume(), build_s=t1 - t0, mesh_s=t2 - t1)
             log.info("payload ready, %d KB -> sending to window", (len(res["verts"]) + len(res["tris"])) // 1024)
             return res
         except Exception:
@@ -127,18 +127,18 @@ class Api:
     def save_step(self):
         import webview
         from geometry_test import export_step
-        if self.shape is None:
+        if self._shape is None:
             return dict(ok=False, error="請先產生模型")
         try:
             dlg = getattr(webview, "FileDialog", None)
             mode = dlg.SAVE if dlg else webview.SAVE_DIALOG
-            res = self.window.create_file_dialog(mode, save_filename="M3x10_pan_PH1.step",
+            res = self._window.create_file_dialog(mode, save_filename="M3x10_pan_PH1.step",
                                                  file_types=("STEP (*.step;*.stp)",))
             if not res:
                 return dict(ok=False, error="已取消")
             path = res if isinstance(res, str) else res[0]
             t = time.time()
-            export_step(self.shape, path)
+            export_step(self._shape, path)
             log.info("STEP saved %s %.2fs", path, time.time() - t)
             return dict(ok=True, path=path)
         except Exception:
@@ -156,7 +156,7 @@ def main():
     import webview
     api = Api()
     threading.Thread(target=api.warm_up, name="warmup", daemon=True).start()
-    api.window = webview.create_window("螺絲 CAD 生成器 - 系統測試 v2", os.path.join(base_dir(), "web", "index.html"),
+    api._window = webview.create_window("螺絲 CAD 生成器 - 系統測試 v3", os.path.join(base_dir(), "web", "index.html"),
                                        js_api=api, width=1100, height=760)
     webview.start(http_server=True)
     log.info("window closed")

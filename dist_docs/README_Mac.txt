@@ -1,4 +1,4 @@
-螺絲 CAD 生成器（測試版 v2）- macOS（Apple 晶片 M1/M2/M3/M4）
+螺絲 CAD 生成器（測試版 v3）- macOS（Apple 晶片 M1/M2/M3/M4）
 
 1. 解壓縮 ScrewGen-mac-arm64.zip，得到 ScrewGen.app（可拖到「應用程式」資料夾）。
 2. 第一次開啟前，打開「終端機」執行以下指令解除下載隔離（路徑依實際位置調整）：

@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<title>螺絲 CAD 生成器 - 系統測試 v2</title>
+<title>螺絲 CAD 生成器 - 系統測試 v3</title>
 <style>
   body { margin: 0; font-family: "Microsoft JhengHei", "PingFang TC", sans-serif; display: flex; height: 100vh; background: #f4f5f7; }
   #side { width: 300px; padding: 18px; box-sizing: border-box; background: #fff; border-right: 1px solid #ddd; overflow: auto; }
@@ -17,7 +17,7 @@
 </head>
 <body>
 <div id="side">
-  <h3>系統可行性測試 v2</h3>
+  <h3>系統可行性測試 v3</h3>
   <p>M3 x 0.5 x 10 盤頭十字 PH1<br>（真實螺旋螺紋）</p>
   <button id="gen" disabled>1. 產生模型 + 3D 預覽</button>
   <button id="save" disabled>2. 另存 STEP</button>
@@ -61,7 +61,17 @@ window.addEventListener("resize", resize); resize();
 function b64ToBuffer(b64) { const s = atob(b64), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; }
 
 // ---------- wait for the Python side + CAD kernel
-function waitApi() { return new Promise(res => { if (window.pywebview && window.pywebview.api) res(); else window.addEventListener("pywebviewready", res, { once: true }); }); }
+// pywebview creates window.pywebview.api first and fills in the functions a moment later,
+// so wait until the functions themselves exist (not just the api object).
+async function waitApi() {
+  const t = performance.now();
+  while (!(window.pywebview && window.pywebview.api && typeof window.pywebview.api.status === "function"
+           && typeof window.pywebview.api.generate === "function")) {
+    if (performance.now() - t > 60000) throw new Error("與 Python 端連線逾時（60 秒）");
+    await new Promise(r => setTimeout(r, 100));
+  }
+}
+setStatus("連線 Python 端…");
 await waitApi();
 const t0 = performance.now();
 setStatus("載入 CAD 幾何核心中…（第一次開啟較久）");

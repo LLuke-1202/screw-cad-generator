@@ -1,4 +1,4 @@
-螺絲 CAD 生成器（測試版 v2）- Windows
+螺絲 CAD 生成器（測試版 v3）- Windows
 
 1. 本資料夾 ScrewGen 內的 ScrewGen.exe 與 _internal 資料夾必須放在一起。
    請勿把 ScrewGen.exe 單獨移出來；要放桌面請用「右鍵 > 傳送到 > 桌面(建立捷徑)」。
